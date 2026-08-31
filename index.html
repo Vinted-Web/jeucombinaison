@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Devine la règle !</title>
+<style>
+  :root {
+    --rouge: #e74c3c;
+    --bleu: #3498db;
+    --jaune: #f1c40f;
+    --bg: #1e2230;
+    --panel: #272c3f;
+    --panel-light: #323952;
+    --cell: #3a4260;
+    --text: #eef1f8;
+    --muted: #9aa3bd;
+    --ok: #2ecc71;
+    --ko: #e74c3c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(160deg, var(--bg), #12141d);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 16px 10px 50px;
+  }
+  .wrap { width: 100%; max-width: 560px; }
+  h1 {
+    text-align: center;
+    font-size: 1.35em;
+    margin: 4px 0 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    margin-bottom: 16px;
+    font-size: 0.9em;
+  }
+  .panel {
+    background: var(--panel);
+    border-radius: 14px;
+    padding: 14px 14px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+  }
+  .instruction {
+    font-size: 1em;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 12px;
+    min-height: 1.4em;
+  }
+  .instruction.win { color: var(--ok); }
+  .instruction.lose { color: var(--ko); }
+
+  /* Combo preview row */
+  .combo-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    background: var(--panel-light);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .combo-slot-preview {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    transition: box-shadow 0.15s, background 0.15s;
+  }
+  .combo-slot-preview.active {
+    background: rgba(255,255,255,0.08);
+    box-shadow: 0 0 0 2px #4c6ef5;
+  }
+  .combo-slot-preview.empty {
+    border: 2px dashed var(--muted);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 1.4em;
+    font-weight: 700;
+  }
+  .combo-arrow { color: var(--muted); font-size: 1.4em; }
+
+  .shape { display: inline-block; }
+  .shape.rond { border-radius: 50%; }
+  .shape.carre { border-radius: 6px; }
+  .shape.triangle {
+    width: 0; height: 0;
+    border-left: solid transparent;
+    border-right: solid transparent;
+    border-bottom: solid;
+    background: none !important;
+  }
+
+  /* Pickers: one grid per slot */
+  .pickers {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .picker-block {
+    background: var(--panel-light);
+    border-radius: 12px;
+    padding: 10px 10px 12px;
+  }
+  .picker-title {
+    font-size: 0.9em;
+    color: var(--text);
+    text-align: center;
+    margin-bottom: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .picker-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .cell-btn {
+    background: var(--cell);
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 10px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    min-height: 56px;
+    transition: transform 0.08s, background 0.15s, border-color 0.15s;
+  }
+  .cell-btn:active { transform: scale(0.94); }
+  .cell-btn.selected {
+    border-color: #fff;
+    background: #4a5487;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.25);
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  button.main-btn {
+    background: #4c6ef5;
+    color: white;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.92em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.2s;
+    flex: 1 1 auto;
+    min-width: 140px;
+  }
+  button.main-btn:hover { background: #3b5be0; }
+  button.main-btn:active { transform: scale(0.97); }
+  button.main-btn.secondary { background: #576078; }
+  button.main-btn.secondary:hover { background: #4a5268; }
+  button.main-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .history { margin-top: 0; }
+  .history h3 { margin: 0 0 10px; font-size: 0.9em; color: var(--muted); font-weight: 600; }
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--panel-light);
+    padding: 8px 12px;
+    border-radius: 10px;
+  }
+  .history-shapes { display: flex; gap: 4px; }
+  .result-badge {
+    margin-left: auto;
+    font-weight: 700;
+    font-size: 0.85em;
+    white-space: nowrap;
+  }
+  .result-badge.ok { color: var(--ok); }
+  .result-badge.ko { color: var(--ko); }
+
+  .rule-reveal {
+    text-align: center;
+    font-size: 1em;
+    background: var(--panel-light);
+    padding: 14px;
+    border-radius: 10px;
+  }
+  .rule-reveal b { color: #ffd166; }
+
+  .empty-hint { color: var(--muted); text-align:center; font-size:0.85em; padding: 6px; }
+  .picker-done { text-align: center; color: var(--muted); font-size: 0.9em; padding: 10px 6px; }
+
+  @media (max-width: 380px) {
+    .combo-slot-preview { width: 46px; height: 46px; }
+    .cell-btn { min-height: 42px; }
+  }
+</style>
+
+  <meta name="theme-color" content="#1e2230">
+  <meta name="description" content="Jeu de logique : découvre la règle secrète avec des formes et des couleurs.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Devine la règle">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+</head>
+<body>
+<div class="wrap">
+  <h1>🔺🟦⚪ Devine la règle secrète</h1>
+  <p class="subtitle">Compose des combinaisons de 3 formes, découvre la règle cachée, puis fais tes preuves !</p>
+
+  <div class="panel">
+    <div class="instruction" id="instruction">Compose une combinaison et clique sur « Tester »</div>
+
+    <div class="combo-preview" id="comboPreview"></div>
+
+    <div class="pickers" id="pickers"></div>
+
+    <div class="actions">
+      <button class="main-btn" id="testBtn">Tester la combinaison</button>
+      <button class="main-btn secondary" id="proposeBtn">Faire une proposition</button>
+      <button class="main-btn secondary" id="clearBtn">🗑️ Effacer</button>
+      <button class="main-btn secondary" id="resetBtn" style="display:none;">🔄 Rejouer</button>
+    </div>
+  </div>
+
+  <div class="panel" id="ruleRevealPanel" style="display:none;">
+    <div class="rule-reveal" id="ruleReveal"></div>
+  </div>
+
+  <div class="panel history" id="historyPanel">
+    <h3>Combinaisons testées</h3>
+    <div class="history-list" id="historyList"></div>
+    <div class="empty-hint" id="emptyHint">Aucun test pour l'instant.</div>
+  </div>
+</div>
+
+<script>
+const SHAPES = ['triangle','carre','rond'];
+const COLORS = ['rouge','bleu','jaune'];
+
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function hexOf(color){
+  return getComputedStyle(document.documentElement).getPropertyValue('--'+color).trim();
+}
+
+function makeShapeEl(shape, color, size){
+  size = size || 40;
+  const el = document.createElement('div');
+  const hex = hexOf(color);
+  if(shape === 'triangle'){
+    el.className = 'shape triangle';
+    el.style.borderLeftWidth = (size/2)+'px';
+    el.style.borderRightWidth = (size/2)+'px';
+    el.style.borderBottomWidth = size+'px';
+    el.style.borderBottomColor = hex;
+  } else {
+    el.className = 'shape ' + shape;
+    el.style.width = size+'px';
+    el.style.height = size+'px';
+    el.style.background = hex;
+  }
+  return el;
+}
+
+// ---- Règles ----
+function buildRule(){
+  const generators = [
+    () => { const c = pick(COLORS); return {
+      test: combo => combo.every(s=>s.color===c),
+      desc: `Les 3 formes doivent être de couleur <b>${c}</b>.`
+    }},
+    () => { const sh = pick(SHAPES); return {
+      test: combo => combo.some(s=>s.shape===sh),
+      desc: `La combinaison doit contenir au moins un <b>${sh}</b>.`
+    }},
+    () => { const sh = pick(SHAPES); return {
+      test: combo => combo.every(s=>s.shape===sh),
+      desc: `Les 3 formes doivent être uniquement des <b>${sh}</b>.`
+    }},
+    () => ({
+      test: combo => new Set(combo.map(s=>s.shape)).size===3,
+      desc: `La combinaison doit contenir une forme de chaque type (triangle, carré et rond).`
+    }),
+    () => { const sh = pick(SHAPES); return {
+      test: combo => combo[0].shape===sh,
+      desc: `La combinaison doit commencer par un <b>${sh}</b>.`
+    }},
+    () => { const sh = pick(SHAPES); return {
+      test: combo => combo[2].shape===sh,
+      desc: `La combinaison doit se terminer par un <b>${sh}</b>.`
+    }},
+    () => { const c = pick(COLORS); return {
+      test: combo => combo.some(s=>s.color===c),
+      desc: `La combinaison doit contenir au moins une forme de couleur <b>${c}</b>.`
+    }},
+    () => ({
+      test: combo => new Set(combo.map(s=>s.color)).size===3,
+      desc: `Les 3 couleurs de la combinaison doivent toutes être différentes.`
+    }),
+    () => { const c = pick(COLORS); return {
+      test: combo => combo[0].color===c,
+      desc: `La première forme doit être de couleur <b>${c}</b>.`
+    }},
+    () => { const c = pick(COLORS); return {
+      test: combo => combo[2].color===c,
+      desc: `La dernière forme doit être de couleur <b>${c}</b>.`
+    }},
+    () => { const sh = pick(SHAPES); return {
+      test: combo => combo[1].shape===sh,
+      desc: `La forme du milieu doit être un <b>${sh}</b>.`
+    }},
+    () => { const c = pick(COLORS); return {
+      test: combo => combo[1].color===c,
+      desc: `La forme du milieu doit être de couleur <b>${c}</b>.`
+    }},
+    () => { const sh = pick(SHAPES); return {
+      test: combo => combo.every(s=>s.shape!==sh),
+      desc: `La combinaison ne doit contenir aucun <b>${sh}</b>.`
+    }},
+    () => { const c = pick(COLORS); return {
+      test: combo => combo.every(s=>s.color!==c),
+      desc: `La combinaison ne doit contenir aucune forme de couleur <b>${c}</b>.`
+    }},
+    () => ({
+      test: combo => combo[0].shape === combo[2].shape,
+      desc: `La première et la dernière forme doivent être du même type.`
+    }),
+    () => ({
+      test: combo => combo[0].color === combo[2].color,
+      desc: `La première et la dernière forme doivent être de la même couleur.`
+    }),
+    () => ({
+      test: combo => SHAPES.some(sh => combo.filter(s=>s.shape===sh).length === 2),
+      desc: `La combinaison doit contenir exactement deux formes identiques (ni une seule, ni les trois).`
+    }),
+    () => ({
+      test: combo => COLORS.some(c => combo.filter(s=>s.color===c).length === 2),
+      desc: `La combinaison doit contenir exactement deux formes de la même couleur (ni une seule, ni les trois).`
+    }),
+    () => ({
+      test: combo => combo.every(s => s.shape===combo[0].shape && s.color===combo[0].color),
+      desc: `Les 3 formes doivent être rigoureusement identiques (même forme ET même couleur).`
+    }),
+  ];
+  return pick(generators)();
+}
+
+// ---- État du jeu ----
+let rule, slots, history, mode, proposalStep, gameOver, firstWinningCombo;
+
+function newGame(){
+  rule = buildRule();
+  slots = [null, null, null];
+  history = [];
+  mode = 'test';
+  proposalStep = 0;
+  gameOver = false;
+  firstWinningCombo = null;
+  document.getElementById('ruleRevealPanel').style.display = 'none';
+  document.getElementById('resetBtn').style.display = 'none';
+  document.getElementById('proposeBtn').style.display = 'inline-block';
+  document.getElementById('proposeBtn').disabled = false;
+  document.getElementById('clearBtn').disabled = false;
+  document.getElementById('proposeBtn').textContent = 'Faire une proposition';
+  document.getElementById('testBtn').textContent = 'Tester la combinaison';
+  setInstruction('Compose une combinaison et clique sur « Tester »', '');
+  renderPickers();
+  renderComboPreview();
+  renderHistory();
+  updateTestButtonState();
+}
+
+function setInstruction(text, cls){
+  const el = document.getElementById('instruction');
+  el.textContent = text;
+  el.className = 'instruction' + (cls ? ' '+cls : '');
+}
+
+function nextEmptyIndex(){
+  return slots.findIndex(s => s === null);
+}
+
+function isComboComplete(){
+  return slots.every(s => s !== null);
+}
+
+function updateTestButtonState(){
+  document.getElementById('testBtn').disabled = gameOver || !isComboComplete();
+}
+
+function renderComboPreview(){
+  const container = document.getElementById('comboPreview');
+  container.innerHTML = '';
+  const activeIndex = nextEmptyIndex();
+  slots.forEach((slot, i) => {
+    const box = document.createElement('div');
+    if(slot === null){
+      box.className = 'combo-slot-preview empty' + (i === activeIndex && !gameOver ? ' active' : '');
+      box.textContent = '?';
+    } else {
+      box.className = 'combo-slot-preview' + (i === activeIndex && !gameOver ? ' active' : '');
+      box.appendChild(makeShapeEl(slot.shape, slot.color, 44));
+    }
+    container.appendChild(box);
+    if(i < slots.length - 1){
+      const arrow = document.createElement('span');
+      arrow.className = 'combo-arrow';
+      arrow.textContent = '';
+      container.appendChild(arrow);
+    }
+  });
+}
+
+function renderPickers(){
+  const container = document.getElementById('pickers');
+  container.innerHTML = '';
+
+  const block = document.createElement('div');
+  block.className = 'picker-block';
+
+  const targetIndex = nextEmptyIndex();
+
+  if(targetIndex === -1){
+    const title = document.createElement('div');
+    title.className = 'picker-title';
+    title.textContent = 'Combinaison complète';
+    block.appendChild(title);
+
+    const done = document.createElement('div');
+    done.className = 'picker-done';
+    done.textContent = 'Clique sur « Tester » ou sur « Effacer » pour recommencer.';
+    block.appendChild(done);
+
+    container.appendChild(block);
+    return;
+  }
+
+  const title = document.createElement('div');
+  title.className = 'picker-title';
+  title.textContent = 'Choisis la forme n°' + (targetIndex + 1);
+  block.appendChild(title);
+
+  const grid = document.createElement('div');
+  grid.className = 'picker-grid';
+
+  SHAPES.forEach(sh => {
+    COLORS.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'cell-btn';
+      btn.appendChild(makeShapeEl(sh, c, 26));
+      btn.onclick = () => {
+        if(gameOver) return;
+        slots[targetIndex] = {shape: sh, color: c};
+        renderPickers();
+        renderComboPreview();
+        updateTestButtonState();
+      };
+      grid.appendChild(btn);
+    });
+  });
+
+  block.appendChild(grid);
+  container.appendChild(block);
+}
+
+function combosEqual(a, b){
+  if(!a || !b) return false;
+  return a.length === b.length && a.every((s,i) => s.shape===b[i].shape && s.color===b[i].color);
+}
+
+function currentCombo(){
+  return slots.map(s => ({shape:s.shape, color:s.color}));
+}
+
+function renderHistory(){
+  const list = document.getElementById('historyList');
+  const emptyHint = document.getElementById('emptyHint');
+  list.innerHTML = '';
+  emptyHint.style.display = history.length === 0 ? 'block' : 'none';
+  history.slice().reverse().forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'history-item';
+    const shapesDiv = document.createElement('div');
+    shapesDiv.className = 'history-shapes';
+    item.combo.forEach(s => {
+      shapesDiv.appendChild(makeShapeEl(s.shape, s.color, 24));
+    });
+    row.appendChild(shapesDiv);
+    const badge = document.createElement('span');
+    badge.className = 'result-badge ' + (item.ok ? 'ok' : 'ko');
+    badge.textContent = item.ok ? '✅ Conforme' : '❌ Non conforme';
+    row.appendChild(badge);
+    list.appendChild(row);
+  });
+}
+
+function endGame(won){
+  gameOver = true;
+  document.getElementById('testBtn').disabled = true;
+  document.getElementById('proposeBtn').disabled = true;
+  document.getElementById('clearBtn').disabled = true;
+  document.getElementById('resetBtn').style.display = 'inline-block';
+  document.getElementById('ruleRevealPanel').style.display = 'block';
+  document.getElementById('ruleReveal').innerHTML =
+    (won ? '🎉 <b>Bravo, tu as trouvé !</b><br>' : '💥 <b>Perdu !</b><br>') +
+    'La règle secrète était : ' + rule.desc;
+}
+
+// ---- Boutons ----
+document.getElementById('testBtn').addEventListener('click', () => {
+  if(gameOver || !isComboComplete()) return;
+  const combo = currentCombo();
+  const ok = rule.test(combo);
+
+  if(mode === 'test'){
+    history.push({combo, ok});
+    renderHistory();
+    slots = [null, null, null];
+    renderPickers();
+    renderComboPreview();
+    updateTestButtonState();
+    return;
+  }
+
+  // mode 'propose'
+  if(proposalStep === 1){
+    if(!ok){
+      setInstruction("❌ Cette combinaison n'est en fait pas conforme à la règle. Partie terminée.", 'lose');
+      endGame(false);
+      return;
+    }
+    proposalStep = 2;
+    firstWinningCombo = combo;
+    document.getElementById('testBtn').textContent = 'Valider comme PERDANTE';
+    setInstruction('✅ Bien joué ! Étape 2/3 — Saisis maintenant une combinaison PERDANTE', 'win');
+    slots = [null, null, null];
+    renderPickers();
+    renderComboPreview();
+    updateTestButtonState();
+  } else if(proposalStep === 2){
+    if(ok){
+      setInstruction('❌ Cette combinaison est en fait conforme à la règle (donc gagnante). Partie terminée.', 'lose');
+      endGame(false);
+      return;
+    }
+    proposalStep = 3;
+    document.getElementById('testBtn').textContent = 'Valider comme GAGNANTE (finale)';
+    setInstruction('✅ Exact ! Étape 3/3 — Saisis une dernière combinaison GAGNANTE', 'win');
+    slots = [null, null, null];
+    renderPickers();
+    renderComboPreview();
+    updateTestButtonState();
+  } else if(proposalStep === 3){
+    if(!ok){
+      setInstruction("❌ Cette combinaison n'est en fait pas conforme à la règle. Partie terminée.", 'lose');
+      endGame(false);
+      return;
+    }
+    if(combosEqual(combo, firstWinningCombo)){
+      setInstruction("⚠️ Cette combinaison est identique à ta première proposition gagnante. Choisis-en une différente.", 'lose');
+      slots = [null, null, null];
+      renderPickers();
+      renderComboPreview();
+      updateTestButtonState();
+      return;
+    }
+    setInstruction('🎉 Tu as gagné la partie !', 'win');
+    endGame(true);
+  }
+});
+
+document.getElementById('proposeBtn').onclick = () => {
+  if(gameOver) return;
+  mode = 'propose';
+  proposalStep = 1;
+  document.getElementById('proposeBtn').style.display = 'none';
+  document.getElementById('testBtn').textContent = 'Valider comme GAGNANTE';
+  setInstruction('Étape 1/3 — Saisis une combinaison que tu penses GAGNANTE', '');
+};
+
+document.getElementById('clearBtn').onclick = () => {
+  if(gameOver) return;
+  slots = [null, null, null];
+  renderPickers();
+  renderComboPreview();
+  updateTestButtonState();
+};
+
+document.getElementById('resetBtn').onclick = newGame;
+
+newGame();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(console.error);
+  });
+}
+</script>
+</body>
+</html>
